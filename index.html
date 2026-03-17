@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Контентный хаб — Москва Медиа</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', -apple-system, sans-serif; background: #0F172A; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const UNITS = [
+  { id: "tv", label: "ТВ", color: "#3B82F6", icon: "📺" },
+  { id: "radio", label: "Радио", color: "#8B5CF6", icon: "📻" },
+  { id: "agency", label: "Агентство", color: "#F59E0B", icon: "📰" },
+  { id: "site", label: "Сайт", color: "#10B981", icon: "🌐" },
+  { id: "social", label: "Соцсети", color: "#EC4899", icon: "💬" },
+];
+const UM = Object.fromEntries(UNITS.map(u => [u.id, u]));
+
+const PART_TYPES = [
+  { id: "video_scene", label: "Съёмка на месте", group: "Видео" },
+  { id: "video_social", label: "Видео из соцсетей", group: "Видео" },
+  { id: "video_cctv", label: "Видео камер наблюдения", group: "Видео" },
+  { id: "video_archive", label: "Архивное видео", group: "Видео" },
+  { id: "nonsync_video", label: "Несобытийный подсъём", group: "Видео" },
+  { id: "sync_live", label: "Синхрон на месте", group: "Видео", hasSpeaker: true },
+  { id: "sync_remote", label: "Синхрон по видеосвязи", group: "Видео", hasSpeaker: true },
+  { id: "audio_air", label: "Аудио из эфира", group: "Аудио" },
+  { id: "text_corr", label: "Текст корреспондента", group: "Текст" },
+  { id: "text_press", label: "Пресс-релиз", group: "Текст" },
+  { id: "text_bg", label: "Справка / БЗ", group: "Текст" },
+  { id: "text_ai", label: "Расшифровка (ИИ)", group: "Текст" },
+  { id: "photo_scene", label: "Фото с места", group: "Фото" },
+  { id: "infographic", label: "Инфографика", group: "Фото" },
+];
+const PTM = Object.fromEntries(PART_TYPES.map(t => [t.id, t]));
+const STATUSES = ["todo", "inwork", "done", "rejected"];
+const ST_C = { todo: "#64748B", inwork: "#F59E0B", done: "#10B981", rejected: "#EF4444" };
+const ST_L = { todo: "Ожидает", inwork: "В работе", done: "Готово", rejected: "Отказ" };
+const PRIORITIES = [{ id: "urgent", label: "Срочно", color: "#EF4444" }, { id: "important", label: "Важно", color: "#F59E0B" }, { id: "planned", label: "Плановое", color: "#64748B" }];
+const PEOPLE = { tv: "Иванов А.", radio: "Петрова М.", agency: "Сидоров К.", site: "Козлова Д.", social: "Ахметов Р." };
+function now() { return new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }); }
+function timeDiff(a, b) { const [ah, am] = a.split(":").map(Number); const [bh, bm] = b.split(":").map(Number); const d = (bh * 60 + bm) - (ah * 60 + am); return d > 0 ? `${Math.floor(d / 60)}ч ${d % 60}мин` : "—"; }
+let _id = 200;
+
+const INIT = [
+  {
+    id: 1, title: "Пожар на складе в Подмосковье", priority: "urgent",
+    createdBy: "Иванов А.", createdUnit: "tv", createdAt: "10:12",
+    joined: { tv: { person: "Иванов А.", time: "10:12", airTime: "12:00", aired: false }, agency: { person: "Сидоров К.", time: "10:25", airTime: "11:30", aired: true } },
+    parts: [
+      { id: 1, title: "Съёмка на месте", type: "video_scene", status: "done", by: "Иванов А.", unit: "tv", time: "10:45", comment: "Стендап + общие планы", speaker: "", files: ["video_001.mp4"] },
+      { id: 2, title: "Синхрон на месте", type: "sync_live", status: "done", by: "Сидоров К.", unit: "agency", time: "10:52", comment: "01:12", speaker: "Козлов И.И.", files: ["sync_mchs.wav"] },
+      { id: 3, title: "Фото с места", type: "photo_scene", status: "done", by: "Козлова Д.", unit: "site", time: "11:01", comment: "3 фото", speaker: "", files: ["photo1.jpg", "photo2.jpg", "photo3.jpg"] },
+      { id: 4, title: "Синхрон по видеосвязи", type: "sync_remote", status: "inwork", by: "Петрова М.", unit: "radio", time: "11:10", comment: "Ждём звонка", speaker: "Сергеев А.", files: [] },
+      { id: 5, title: "Видео камер наблюдения", type: "video_cctv", status: "todo", by: "", unit: "", time: "", comment: "Запросили у ЧОП", speaker: "", files: [] },
+    ],
+    materials: {
+      contacts_scene: [{ id: 101, name: "Иванов П.П., охранник", contact: "+7 999 123-45-67", note: "На проходной" }],
+      contacts_speakers: [{ id: 102, name: "Козлов И.И., МЧС", contact: "+7 999 765-43-21", note: "Записан" }, { id: 103, name: "Сергеев А., префектура", contact: "@sergeev_pref", note: "Ждём" }],
+      videos_social: [{ id: 104, title: "Видео очевидца", url: "https://t.me/example/123", by: "Козлова Д.", time: "10:35" }],
+    },
+    crews: [{ id: 1, location: "ул. Промышленная, 15", departedAt: "10:20", arrivedAt: "10:40", task: "Стендап, общие планы, синхрон МЧС", contact: "Иванов П.П., +7 999 123-45-67", priority: "urgent" }],
+    links: [{ title: "Telegram: МЧС", url: "#" }, { title: "ТАСС", url: "#" }],
+    messages: [
+      { author: "Иванов А., ТВ", text: "Бригада на месте", time: "10:40", auto: false },
+      { author: "Система", text: "Съёмочная группа выехала → ул. Промышленная, 15", time: "10:20", auto: true },
+      { author: "Система", text: "Съёмочная группа на месте (20 мин в пути)", time: "10:40", auto: true },
+    ],
+  },
+  { id: 2, title: "Открытие моста через Москву-реку", priority: "planned", createdBy: "Козлова Д.", createdUnit: "site", createdAt: "09:45", joined: { site: { person: "Козлова Д.", time: "09:45", airTime: "12:00", aired: false }, tv: { person: "Иванов А.", time: "09:50", airTime: "14:00", aired: false } }, parts: [{ id: 10, title: "Пресс-релиз", type: "text_press", status: "done", by: "Козлова Д.", unit: "site", time: "09:45", comment: "", speaker: "", files: ["press_bridge.pdf"] }], materials: { contacts_scene: [], contacts_speakers: [], videos_social: [] }, crews: [], links: [], messages: [] },
+  { id: 3, title: "Пресс-конференция Спартак", priority: "important", createdBy: "Ахметов Р.", createdUnit: "social", createdAt: "08:30", joined: { social: { person: "Ахметов Р.", time: "08:30", airTime: "10:00", aired: true }, tv: { person: "Иванов А.", time: "08:40", airTime: "12:00", aired: false } }, parts: [{ id: 20, title: "Фото с места", type: "photo_scene", status: "done", by: "Ахметов Р.", unit: "social", time: "09:00", comment: "", speaker: "", files: [] }, { id: 21, title: "Синхрон на месте", type: "sync_live", status: "done", by: "Иванов А.", unit: "tv", time: "09:15", comment: "", speaker: "", files: [] }], materials: { contacts_scene: [], contacts_speakers: [{ id: 110, name: "Тренер Спартак", contact: "+7 000", note: "Записан" }], videos_social: [] }, crews: [], links: [], messages: [] },
+];
+
+const ov = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
+const md = { background: "#fff", borderRadius: 14, width: 440, padding: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", maxHeight: "85vh", overflowY: "auto" };
+const cb = { background: "#F1F5F9", border: "none", borderRadius: 6, width: 26, height: 26, cursor: "pointer", fontSize: 13, color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" };
+const fl = { fontSize: 10, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 3 };
+const fi = { width: "100%", border: "1.5px solid #E2E8F0", borderRadius: 7, padding: "7px 10px", fontSize: 12, outline: "none", boxSizing: "border-box", color: "#1E293B", background: "#fff" };
+const SB = { background: "#fff", borderRadius: 10, padding: 14, marginBottom: 8, border: "1px solid #E2E8F0" };
+const ST = { fontSize: 10, fontWeight: 700, color: "#64748B", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 };
+
+function UB({ uid, style: sx }) { const [h, setH] = useState(false); const u = UM[uid]; if (!u) return null; return (<span onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)} style={{ position: "relative", background: u.color + "20", color: u.color, padding: "3px 7px", borderRadius: 4, fontSize: 13, cursor: "default", display: "inline-flex", ...sx }}>{u.icon}{h && <span style={{ position: "absolute", bottom: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", background: "#1E293B", color: "#F1F5F9", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", zIndex: 10 }}>{u.label}</span>}</span>); }
+
+function ResModal({ onClose, onSubmit }) {
+  const [f, sf] = useState({ location: "", time: "", duration: "30", task: "", contact: "", priority: "important" });
+  return (<div style={ov} onClick={onClose}><div onClick={e => e.stopPropagation()} style={md}>
+    <div style={{ display: "flex", justifyContent: "space-between", mb: 14, marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 15 }}>Заявка в координацию</h3><button onClick={onClose} style={cb}>✕</button></div>
+    {[["Место", "location", "Адрес"], ["Время выезда", "time", "", "time"], ["Длит. (мин)", "duration", "", "number"], ["Контакт на месте", "contact", "Имя, тел"]].map(([l, k, p, t]) => (<div key={k} style={{ marginBottom: 10 }}><label style={fl}>{l}</label><input type={t || "text"} value={f[k]} onChange={e => sf({ ...f, [k]: e.target.value })} placeholder={p} style={fi} /></div>))}
+    <div style={{ marginBottom: 10 }}><label style={fl}>Задание</label><textarea value={f.task} onChange={e => sf({ ...f, task: e.target.value })} placeholder="Что снимать, кого искать" style={{ ...fi, minHeight: 50, resize: "vertical", fontFamily: "inherit" }} /></div>
+    <div style={{ marginBottom: 14 }}><label style={fl}>Приоритет</label><div style={{ display: "flex", gap: 5 }}>{PRIORITIES.map(p => (<button key={p.id} onClick={() => sf({ ...f, priority: p.id })} style={{ padding: "4px 12px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: f.priority === p.id ? p.color + "15" : "#F8FAFC", border: `1.5px solid ${f.priority === p.id ? p.color : "#E2E8F0"}`, color: f.priority === p.id ? p.color : "#64748B" }}>{p.label}</button>))}</div></div>
+    <button onClick={() => { onSubmit(f); onClose(); }} style={{ width: "100%", background: "#3B82F6", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Отправить</button>
+  </div></div>);
+}
+
+function AddPartModal({ onClose, onAdd, speakers }) {
+  const [type, setType] = useState(""); const [comment, setComment] = useState(""); const [unit, setUnit] = useState("tv"); const [spk, setSpk] = useState(""); const [files, setFiles] = useState("");
+  const groups = [...new Set(PART_TYPES.map(t => t.group))]; const hs = type && PTM[type]?.hasSpeaker;
+  return (<div style={ov} onClick={onClose}><div onClick={e => e.stopPropagation()} style={md}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 15 }}>Добавить запчасть</h3><button onClick={onClose} style={cb}>✕</button></div>
+    {groups.map(g => (<div key={g} style={{ marginBottom: 8 }}><div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, marginBottom: 3 }}>{g}</div><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{PART_TYPES.filter(t => t.group === g).map(t => (<button key={t.id} onClick={() => { setType(t.id); setSpk(""); }} style={{ padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 500, cursor: "pointer", background: type === t.id ? "#3B82F615" : "#F8FAFC", border: `1.5px solid ${type === t.id ? "#3B82F6" : "#E2E8F0"}`, color: type === t.id ? "#3B82F6" : "#475569" }}>{t.label}</button>))}</div></div>))}
+    <div style={{ marginTop: 8, marginBottom: 8 }}><label style={fl}>Юнит</label><div style={{ display: "flex", gap: 3 }}>{UNITS.map(u => (<button key={u.id} onClick={() => setUnit(u.id)} style={{ padding: "4px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: unit === u.id ? u.color + "15" : "#F8FAFC", border: `1.5px solid ${unit === u.id ? u.color : "#E2E8F0"}`, color: unit === u.id ? u.color : "#64748B" }}>{u.icon} {u.label}</button>))}</div></div>
+    {hs && speakers.length > 0 && (<div style={{ marginBottom: 8 }}><label style={fl}>Спикер</label><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{speakers.map(s => (<button key={s.id} onClick={() => setSpk(s.name)} style={{ padding: "3px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", background: spk === s.name ? "#8B5CF615" : "#F8FAFC", border: `1.5px solid ${spk === s.name ? "#8B5CF6" : "#E2E8F0"}`, color: spk === s.name ? "#8B5CF6" : "#475569" }}>{s.name}</button>))}</div></div>)}
+    <div style={{ marginBottom: 8 }}><label style={fl}>Комментарий</label><input value={comment} onChange={e => setComment(e.target.value)} style={fi} /></div>
+    <div style={{ marginBottom: 12 }}><label style={fl}>Файлы (через запятую)</label><input value={files} onChange={e => setFiles(e.target.value)} placeholder="video.mp4, photo.jpg" style={fi} /></div>
+    <button disabled={!type} onClick={() => { onAdd({ id: ++_id, title: PTM[type].label, type, status: "todo", by: PEOPLE[unit], unit, time: now(), comment, speaker: spk, files: files ? files.split(",").map(f => f.trim()) : [] }); onClose(); }} style={{ width: "100%", background: type ? "#3B82F6" : "#CBD5E1", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: type ? "pointer" : "default" }}>Добавить</button>
+  </div></div>);
+}
+
+function EditPartModal({ part, onClose, onSave, speakers }) {
+  const [type, setType] = useState(part.type); const [comment, setComment] = useState(part.comment); const [unit, setUnit] = useState(part.unit); const [spk, setSpk] = useState(part.speaker || ""); const [files, setFiles] = useState([...(part.files || [])]); const [newFile, setNewFile] = useState("");
+  const groups = [...new Set(PART_TYPES.map(t => t.group))]; const hs = type && PTM[type]?.hasSpeaker;
+  const addFile = () => { if (newFile.trim()) { setFiles([...files, newFile.trim()]); setNewFile(""); } };
+  const removeFile = (i) => setFiles(files.filter((_, idx) => idx !== i));
+  return (<div style={ov} onClick={onClose}><div onClick={e => e.stopPropagation()} style={md}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 15 }}>Редактировать</h3><button onClick={onClose} style={cb}>✕</button></div>
+    {groups.map(g => (<div key={g} style={{ marginBottom: 8 }}><div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, marginBottom: 3 }}>{g}</div><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{PART_TYPES.filter(t => t.group === g).map(t => (<button key={t.id} onClick={() => setType(t.id)} style={{ padding: "3px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", background: type === t.id ? "#3B82F615" : "#F8FAFC", border: `1.5px solid ${type === t.id ? "#3B82F6" : "#E2E8F0"}`, color: type === t.id ? "#3B82F6" : "#475569" }}>{t.label}</button>))}</div></div>))}
+    <div style={{ marginTop: 8, marginBottom: 8 }}><label style={fl}>Юнит</label><div style={{ display: "flex", gap: 3 }}>{UNITS.map(u => (<button key={u.id} onClick={() => setUnit(u.id)} style={{ padding: "4px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: unit === u.id ? u.color + "15" : "#F8FAFC", border: `1.5px solid ${unit === u.id ? u.color : "#E2E8F0"}`, color: unit === u.id ? u.color : "#64748B" }}>{u.icon} {u.label}</button>))}</div></div>
+    {hs && speakers.length > 0 && (<div style={{ marginBottom: 8 }}><label style={fl}>Спикер</label><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{speakers.map(s => (<button key={s.id} onClick={() => setSpk(s.name)} style={{ padding: "3px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", background: spk === s.name ? "#8B5CF615" : "#F8FAFC", border: `1.5px solid ${spk === s.name ? "#8B5CF6" : "#E2E8F0"}`, color: spk === s.name ? "#8B5CF6" : "#475569" }}>{s.name}</button>))}<button onClick={() => setSpk("")} style={{ padding: "3px 8px", borderRadius: 5, fontSize: 10, cursor: "pointer", background: "#F8FAFC", border: "1.5px solid #E2E8F0", color: "#94A3B8" }}>Без</button></div></div>)}
+    <div style={{ marginBottom: 8 }}><label style={fl}>Комментарий</label><input value={comment} onChange={e => setComment(e.target.value)} style={fi} /></div>
+    <div style={{ marginBottom: 12 }}>
+      <label style={fl}>Файлы</label>
+      {files.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>{files.map((f, i) => <span key={i} style={{ fontSize: 10, background: "#EFF6FF", color: "#3B82F6", padding: "3px 8px", borderRadius: 4, border: "1px solid #BFDBFE", display: "inline-flex", alignItems: "center", gap: 4 }}>📎 {f}<button onClick={() => removeFile(i)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: 12, padding: 0, lineHeight: 1 }}>×</button></span>)}</div>}
+      <div style={{ display: "flex", gap: 4 }}>
+        <input value={newFile} onChange={e => setNewFile(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addFile(); } }} placeholder="Имя файла" style={{ ...fi, flex: 1 }} />
+        <button onClick={addFile} style={{ background: "#EFF6FF", border: "1.5px solid #BFDBFE", borderRadius: 7, padding: "7px 12px", fontSize: 12, fontWeight: 600, color: "#3B82F6", cursor: "pointer", whiteSpace: "nowrap" }}>📎 Прикрепить</button>
+      </div>
+    </div>
+    <button onClick={() => { onSave(part.id, { type, title: PTM[type]?.label || part.title, comment, unit, by: PEOPLE[unit] || part.by, speaker: spk, files }); onClose(); }} style={{ width: "100%", background: "#3B82F6", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Сохранить</button>
+  </div></div>);
+}
+
+function AddMatModal({ type, onClose, onAdd }) {
+  const [name, setName] = useState(""); const [contact, setContact] = useState(""); const [note, setNote] = useState(""); const [title, setTitle] = useState(""); const [url, setUrl] = useState(""); const [by, setBy] = useState("tv");
+  const isCt = type !== "videos_social"; const lbl = { contacts_scene: "Контакт на месте", contacts_speakers: "Контакт спикера", videos_social: "Видео из соцсетей" };
+  return (<div style={ov} onClick={onClose}><div onClick={e => e.stopPropagation()} style={{ ...md, width: 380 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 15 }}>{lbl[type]}</h3><button onClick={onClose} style={cb}>✕</button></div>
+    {isCt ? (<>
+      <div style={{ marginBottom: 10 }}><label style={fl}>Имя</label><input value={name} onChange={e => setName(e.target.value)} placeholder="ФИО, должность" style={fi} /></div>
+      <div style={{ marginBottom: 10 }}><label style={fl}>Телефон / мессенджер</label><input value={contact} onChange={e => setContact(e.target.value)} placeholder="+7... или @telegram" style={fi} /></div>
+      <div style={{ marginBottom: 12 }}><label style={fl}>Примечание</label><input value={note} onChange={e => setNote(e.target.value)} placeholder="Записан / ждём / отказался" style={fi} /></div>
+      <button disabled={!name} onClick={() => { onAdd(type, { id: ++_id, name, contact, note }); onClose(); }} style={{ width: "100%", background: name ? "#3B82F6" : "#CBD5E1", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: name ? "pointer" : "default" }}>Добавить</button>
+    </>) : (<>
+      <div style={{ marginBottom: 10 }}><label style={fl}>Описание</label><input value={title} onChange={e => setTitle(e.target.value)} style={fi} /></div>
+      <div style={{ marginBottom: 10 }}><label style={fl}>Ссылка</label><input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." style={fi} /></div>
+      <div style={{ marginBottom: 12 }}><label style={fl}>Кто нашёл</label><div style={{ display: "flex", gap: 3 }}>{UNITS.map(u => (<button key={u.id} onClick={() => setBy(u.id)} style={{ padding: "4px 8px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: by === u.id ? u.color + "15" : "#F8FAFC", border: `1.5px solid ${by === u.id ? u.color : "#E2E8F0"}`, color: by === u.id ? u.color : "#64748B" }}>{u.icon}</button>))}</div></div>
+      <button disabled={!title || !url} onClick={() => { onAdd(type, { id: ++_id, title, url, by: PEOPLE[by], time: now() }, by); onClose(); }} style={{ width: "100%", background: (title && url) ? "#3B82F6" : "#CBD5E1", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: (title && url) ? "pointer" : "default" }}>Добавить</button>
+    </>)}
+  </div></div>);
+}
+
+function PC({ part, onEdit }) {
+  const u = part.unit ? UM[part.unit] : null;
+  const fls = part.files || [];
+  return (
+    <div draggable onDragStart={e => e.dataTransfer.setData("partId", String(part.id))} style={{ background: "#fff", borderRadius: 7, padding: "8px 10px", border: "1px solid #E2E8F0", cursor: "grab", userSelect: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#1E293B", flex: 1 }}>{part.title}</span>
+        {u && <span style={{ fontSize: 9, fontWeight: 600, color: u.color, background: u.color + "10", padding: "1px 4px", borderRadius: 3 }}>{u.label}</span>}
+        <button onClick={e => { e.stopPropagation(); onEdit(part); }} style={{ background: "#F1F5F9", border: "none", borderRadius: 4, width: 20, height: 20, cursor: "pointer", fontSize: 10, color: "#94A3B8", display: "flex", alignItems: "center", justifyContent: "center" }}>✎</button>
+      </div>
+      {part.speaker && <div style={{ fontSize: 10, color: "#8B5CF6", marginTop: 2 }}>Спикер: {part.speaker}</div>}
+      {part.by && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 1 }}>{part.by} · {part.time}</div>}
+      {part.comment && <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{part.comment}</div>}
+      {fls.length > 0 && <div style={{ marginTop: 3, display: "flex", gap: 3, flexWrap: "wrap" }}>{fls.map((f, i) => <span key={i} style={{ fontSize: 9, background: "#EFF6FF", color: "#3B82F6", padding: "1px 5px", borderRadius: 3, border: "1px solid #BFDBFE" }}>📎 {f}</span>)}</div>}
+    </div>
+  );
+}
+
+// Dashboard
+function Dashboard({ topics }) {
+  const stats = {};
+  UNITS.forEach(u => { stats[u.id] = { topicsCreated: 0, topicsJoined: 0, partsAdded: 0, partsUsedByOthers: 0 }; });
+  topics.forEach(t => {
+    if (stats[t.createdUnit]) stats[t.createdUnit].topicsCreated++;
+    Object.keys(t.joined).forEach(uid => { if (stats[uid]) stats[uid].topicsJoined++; });
+    t.parts.forEach(p => { if (p.unit && stats[p.unit]) stats[p.unit].partsAdded++; });
+  });
+  const maxParts = Math.max(1, ...Object.values(stats).map(s => s.partsAdded));
+  return (
+    <div style={{ padding: "20px 24px" }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0F172A", marginBottom: 16 }}>Контрибьюция по юнитам</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {UNITS.map(u => {
+          const s = stats[u.id];
+          const pct = Math.round((s.partsAdded / maxParts) * 100);
+          return (
+            <div key={u.id} style={{ background: "#fff", borderRadius: 10, padding: 14, border: `1.5px solid ${u.color}20` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 16 }}>{u.icon}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: u.color }}>{u.label}</span>
+              </div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: "#0F172A" }}>{s.topicsCreated}</div><div style={{ fontSize: 10, color: "#94A3B8" }}>Тем создано</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: "#0F172A" }}>{s.topicsJoined}</div><div style={{ fontSize: 10, color: "#94A3B8" }}>Тем в работе</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: "#0F172A" }}>{s.partsAdded}</div><div style={{ fontSize: 10, color: "#94A3B8" }}>Запчастей</div></div>
+              </div>
+              <div style={{ background: "#E2E8F0", borderRadius: 4, height: 6 }}><div style={{ background: u.color, borderRadius: 4, height: 6, width: `${pct}%`, transition: "width 0.3s" }} /></div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TopicView({ topic: init, onBack }) {
+  const [topic, setTopic] = useState(JSON.parse(JSON.stringify(init)));
+  const [showChat, setShowChat] = useState(false);
+  const [showAddPart, setShowAddPart] = useState(false);
+  const [editingPart, setEditingPart] = useState(null);
+  const [showResource, setShowResource] = useState(false);
+  const [addMatType, setAddMatType] = useState(null);
+  const [newMsg, setNewMsg] = useState("");
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [notif, setNotif] = useState(null);
+  const notify = t => { setNotif(t); setTimeout(() => setNotif(null), 2500); };
+  const up = fn => { const t = JSON.parse(JSON.stringify(topic)); fn(t); setTopic(t); };
+  const am = (t, auto, text) => t.messages.push({ author: auto ? "Система" : "Вы", text, time: now(), auto });
+
+  const toggleUnit = uid => { if (uid === topic.createdUnit) return; up(t => { if (t.joined[uid]) { delete t.joined[uid]; am(t, true, `${PEOPLE[uid]} (${UM[uid].label}) вышел`); } else { t.joined[uid] = { person: PEOPLE[uid], time: now(), airTime: "", aired: false }; am(t, true, `${PEOPLE[uid]} (${UM[uid].label}) присоединился`); notify(`${UM[uid].label} в теме`); } }); };
+  const setAirTime = (uid, v) => up(t => { t.joined[uid].airTime = v; });
+  const toggleAired = uid => up(t => { t.joined[uid].aired = !t.joined[uid].aired; if (t.joined[uid].aired) { am(t, true, `${UM[uid].label}: В ЭФИРЕ`); notify(`${UM[uid].label}: в эфире!`); } });
+  const sendMsg = () => { if (!newMsg.trim()) return; up(t => am(t, false, newMsg)); setNewMsg(""); };
+  const addPart = p => up(t => { t.parts.push(p); const uLabel = p.unit && UM[p.unit] ? UM[p.unit].label : ""; am(t, true, `${p.by}${uLabel ? ` (${uLabel})` : ""}: + ${p.title}${p.speaker ? `, спикер: ${p.speaker}` : ""}${p.files?.length ? ` [${p.files.length} файл(ов)]` : ""}`); notify(`Запчасть: ${p.title}`); });
+  const savePart = (id, ch) => up(t => { t.parts = t.parts.map(p => p.id === id ? { ...p, ...ch } : p); const uLabel = ch.unit && UM[ch.unit] ? UM[ch.unit].label : ""; am(t, true, `${ch.by || ""}${uLabel ? ` (${uLabel})` : ""}: изменено — ${ch.title}`); });
+  const onDrop = (s, e) => { e.preventDefault(); setDragOverCol(null); const pid = parseInt(e.dataTransfer.getData("partId")); up(t => { const p = t.parts.find(x => x.id === pid); if (p) { const uLabel = p.unit && UM[p.unit] ? UM[p.unit].label : ""; p.status = s; am(t, true, `${p.by || ""}${uLabel ? ` (${uLabel})` : ""}: ${p.title} → ${ST_L[s]}`); } }); };
+  const submitResource = f => { up(t => { t.crews.push({ id: ++_id, location: f.location, departedAt: "", arrivedAt: "", task: f.task, contact: f.contact, priority: f.priority }); am(t, true, `Заявка: ${f.location}, ${f.time}, ${f.task}`); }); notify("Заявка отправлена"); };
+  const toggleCrewStatus = (crewId, field) => up(t => { const c = t.crews.find(x => x.id === crewId); if (c) { c[field] = c[field] ? "" : now(); am(t, true, field === "departedAt" ? `Группа выехала → ${c.location}` : `Группа вернулась с ${c.location}${c.departedAt ? ` (на месте ${timeDiff(c.departedAt, now())})` : ""}`); } });
+  const addMaterial = (type, item, unitId) => { up(t => { t.materials[type].push(item); const uLabel = unitId && UM[unitId] ? UM[unitId].label : ""; am(t, true, `${item.by || item.name}${uLabel ? ` (${uLabel})` : ""}: + ${type === "videos_social" ? item.title : item.name}`); if (type === "videos_social") { t.parts.push({ id: ++_id, title: "Видео из соцсетей", type: "video_social", status: "todo", by: item.by, unit: unitId || "", time: item.time, comment: item.title, speaker: "", files: [] }); am(t, true, `Автоматически добавлена запчасть: Видео из соцсетей`); } }); notify("Добавлено"); };
+
+  const je = Object.entries(topic.joined); const ac = je.filter(([, v]) => v.aired).length;
+  const pr = PRIORITIES.find(p => p.id === topic.priority); const spks = topic.materials.contacts_speakers;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#F1F5F9", fontFamily: "'IBM Plex Sans', -apple-system, sans-serif" }}>
+      {notif && <div style={{ position: "fixed", top: 14, right: 14, background: "#10B981", color: "#fff", padding: "9px 16px", borderRadius: 7, fontSize: 12, fontWeight: 600, boxShadow: "0 4px 16px rgba(16,185,129,0.3)", zIndex: 2000 }}>{notif}</div>}
+      {showAddPart && <AddPartModal onClose={() => setShowAddPart(false)} onAdd={addPart} speakers={spks} />}
+      {editingPart && <EditPartModal part={editingPart} onClose={() => setEditingPart(null)} onSave={savePart} speakers={spks} />}
+      {showResource && <ResModal onClose={() => setShowResource(false)} onSubmit={submitResource} />}
+      {addMatType && <AddMatModal type={addMatType} onClose={() => setAddMatType(null)} onAdd={addMaterial} />}
+
+      <div style={{ background: "#fff", borderBottom: "1px solid #E2E8F0", padding: "9px 22px", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 100 }}>
+        <button onClick={onBack} style={{ background: "#F1F5F9", border: "none", borderRadius: 7, width: 32, height: 32, cursor: "pointer", fontSize: 14, color: "#64748B", display: "flex", alignItems: "center", justifyContent: "center" }}>{"\u2190"}</button>
+        <div style={{ flex: 1 }}><div style={{ display: "flex", alignItems: "center", gap: 6 }}>{pr && <span style={{ fontSize: 9, fontWeight: 700, color: pr.color, background: pr.color + "12", padding: "2px 7px", borderRadius: 3 }}>{pr.label.toUpperCase()}</span>}<span style={{ fontSize: 15, fontWeight: 700 }}>{topic.title}</span></div><div style={{ fontSize: 10, color: "#94A3B8" }}>{topic.createdBy}, {UM[topic.createdUnit].label} · {topic.createdAt} · В эфире: {ac}/{je.length}</div></div>
+        <button onClick={() => setShowResource(true)} style={{ background: "#FFF7ED", color: "#EA580C", border: "1px solid #FDBA74", borderRadius: 7, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Заявка на выезд</button>
+        <button onClick={() => setShowChat(!showChat)} style={{ background: showChat ? "#3B82F6" : "#F1F5F9", color: showChat ? "#fff" : "#64748B", border: "none", borderRadius: 7, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Лента <span style={{ background: showChat ? "#fff3" : "#3B82F6", color: "#fff", padding: "1px 5px", borderRadius: 8, fontSize: 9, marginLeft: 3 }}>{topic.messages.length}</span></button>
+      </div>
+
+      <div style={{ display: "flex" }}>
+        <div style={{ flex: 1, padding: "12px 22px", maxWidth: showChat ? "calc(100% - 320px)" : "100%", transition: "max-width 0.2s" }}>
+          {/* Units */}
+          <div style={SB}><div style={ST}>Редакции</div><div style={{ display: "flex", flexDirection: "column", gap: 3 }}>{UNITS.map(u => { const j = topic.joined[u.id]; return (<div key={u.id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 9px", borderRadius: 6, background: j ? u.color + "04" : "#FAFAFA", border: `1.5px solid ${j ? u.color + "18" : "#EEE"}`, opacity: j ? 1 : 0.5 }}><div onClick={() => toggleUnit(u.id)} style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${j ? u.color : "#CBD5E1"}`, background: j ? u.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", cursor: u.id === topic.createdUnit ? "default" : "pointer" }}>{j && "\u2713"}</div><UB uid={u.id} /><span style={{ fontSize: 12, fontWeight: 600, color: j ? u.color : "#94A3B8", minWidth: 65 }}>{u.label}</span>{j && <><span style={{ fontSize: 10, color: "#94A3B8" }}>{j.person}</span><div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}><span style={{ fontSize: 9, color: "#94A3B8" }}>Эфир:</span><input type="time" value={j.airTime} onChange={e => setAirTime(u.id, e.target.value)} style={{ border: `1px solid ${u.color}18`, borderRadius: 4, padding: "1px 3px", fontSize: 11, color: u.color, fontWeight: 600, background: "#fff", outline: "none", width: 76 }} /><div onClick={() => toggleAired(u.id)} style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", padding: "2px 7px", borderRadius: 4, background: j.aired ? "#10B98110" : "#F8F8F8", border: `1px solid ${j.aired ? "#10B98120" : "#E8E8E8"}` }}><div style={{ width: 12, height: 12, borderRadius: 3, border: `2px solid ${j.aired ? "#10B981" : "#CBD5E1"}`, background: j.aired ? "#10B981" : "transparent", fontSize: 8, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{j.aired && "\u2713"}</div><span style={{ fontSize: 10, fontWeight: 600, color: j.aired ? "#10B981" : "#94A3B8" }}>{j.aired ? "В эфире" : "Нет"}</span></div></div></>}</div>); })}</div></div>
+
+          {/* Parts kanban */}
+          <div style={SB}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><div style={ST}>Запчасти ({topic.parts.filter(p => p.status === "done").length}/{topic.parts.filter(p => p.status !== "rejected").length})</div><button onClick={() => setShowAddPart(true)} style={{ background: "#3B82F6", color: "#fff", border: "none", borderRadius: 5, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>+ Добавить</button></div>
+            <div style={{ display: "flex", gap: 8 }}>{STATUSES.map(s => { const items = topic.parts.filter(p => p.status === s); return (<div key={s} style={{ flex: s === "rejected" ? 0.6 : 1, minWidth: 0 }} onDragOver={e => { e.preventDefault(); setDragOverCol(s); }} onDragLeave={() => setDragOverCol(null)} onDrop={e => onDrop(s, e)}><div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5, paddingBottom: 4, borderBottom: `2px solid ${ST_C[s]}18` }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: ST_C[s] }} /><span style={{ fontSize: 10, fontWeight: 700, color: "#475569" }}>{ST_L[s]}</span><span style={{ fontSize: 9, background: "#E2E8F0", color: "#64748B", padding: "0 4px", borderRadius: 6, fontWeight: 700 }}>{items.length}</span></div><div style={{ minHeight: 50, padding: 3, borderRadius: 5, background: dragOverCol === s ? ST_C[s] + "06" : "transparent", border: dragOverCol === s ? `1.5px dashed ${ST_C[s]}30` : "1.5px dashed transparent", display: "flex", flexDirection: "column", gap: 4 }}>{items.map(p => <PC key={p.id} part={p} onEdit={setEditingPart} />)}</div></div>); })}</div>
+          </div>
+
+          {/* Crews */}
+          {topic.crews.length > 0 && (<div style={SB}><div style={ST}>Съёмки</div><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{topic.crews.map(c => { const pri = PRIORITIES.find(p => p.id === c.priority); return (<div key={c.id} style={{ background: "#FFFBEB", borderRadius: 8, padding: "10px 12px", border: "1px solid #FDE68A" }}><div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>{pri && <span style={{ fontSize: 9, fontWeight: 700, color: pri.color, background: pri.color + "12", padding: "1px 6px", borderRadius: 3 }}>{pri.label}</span>}<span style={{ fontSize: 12, fontWeight: 600, color: "#1E293B" }}>{c.location}</span></div>{c.task && <div style={{ fontSize: 11, color: "#475569", marginBottom: 4 }}>Задание: {c.task}</div>}{c.contact && <div style={{ fontSize: 11, color: "#3B82F6", marginBottom: 6 }}>Контакт: {c.contact}</div>}<div style={{ display: "flex", gap: 8 }}><div onClick={() => toggleCrewStatus(c.id, "departedAt")} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", padding: "4px 10px", borderRadius: 5, background: c.departedAt ? "#F59E0B15" : "#F8FAFC", border: `1.5px solid ${c.departedAt ? "#F59E0B" : "#E2E8F0"}` }}><div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${c.departedAt ? "#F59E0B" : "#CBD5E1"}`, background: c.departedAt ? "#F59E0B" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff" }}>{c.departedAt && "\u2713"}</div><span style={{ fontSize: 11, fontWeight: 600, color: c.departedAt ? "#B45309" : "#94A3B8" }}>{c.departedAt ? `Выехали ${c.departedAt}` : "Выехал"}</span></div><div onClick={() => toggleCrewStatus(c.id, "arrivedAt")} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", padding: "4px 10px", borderRadius: 5, background: c.arrivedAt ? "#10B98115" : "#F8FAFC", border: `1.5px solid ${c.arrivedAt ? "#10B981" : "#E2E8F0"}` }}><div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${c.arrivedAt ? "#10B981" : "#CBD5E1"}`, background: c.arrivedAt ? "#10B981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff" }}>{c.arrivedAt && "\u2713"}</div><span style={{ fontSize: 11, fontWeight: 600, color: c.arrivedAt ? "#059669" : "#94A3B8" }}>{c.arrivedAt ? `Вернулись ${c.arrivedAt}` : "Вернулся"}</span></div>{c.departedAt && c.arrivedAt && <span style={{ fontSize: 11, fontWeight: 600, color: "#6B7280", padding: "4px 10px" }}>На месте: {timeDiff(c.departedAt, c.arrivedAt)}</span>}</div></div>); })}</div></div>)}
+
+          {/* Materials */}
+          <div style={SB}><div style={ST}>Материалы и контакты</div><div style={{ display: "flex", gap: 10 }}>{[{ key: "contacts_scene", label: "Контакты на месте" }, { key: "contacts_speakers", label: "Контакты спикеров" }, { key: "videos_social", label: "Видео из соцсетей" }].map(col => (<div key={col.key} style={{ flex: 1 }}><div style={{ fontSize: 10, fontWeight: 600, color: "#475569", marginBottom: 4 }}>{col.label}</div><div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6 }}>{col.key !== "videos_social" ? (topic.materials[col.key].length > 0 ? topic.materials[col.key].map(c => (<div key={c.id} style={{ background: "#F8FAFC", borderRadius: 5, padding: "6px 8px", border: "1px solid #E2E8F0", fontSize: 11 }}><div style={{ fontWeight: 600, color: "#1E293B" }}>{c.name}</div>{c.contact && <div style={{ color: "#3B82F6" }}>{c.contact}</div>}{c.note && <div style={{ color: c.note === "Записан" ? "#10B981" : c.note === "Отказался" ? "#EF4444" : "#94A3B8", fontSize: 10, fontWeight: 500 }}>{c.note}</div>}</div>)) : <div style={{ fontSize: 10, color: "#CBD5E1", fontStyle: "italic" }}>Нет</div>) : (topic.materials.videos_social.length > 0 ? topic.materials.videos_social.map(v => (<div key={v.id} style={{ background: "#F8FAFC", borderRadius: 5, padding: "6px 8px", border: "1px solid #E2E8F0", fontSize: 11 }}><div style={{ fontWeight: 600, color: "#1E293B" }}>{v.title}</div><a href={v.url} target="_blank" rel="noreferrer" style={{ color: "#3B82F6", fontSize: 10, textDecoration: "none", wordBreak: "break-all" }}>{v.url}</a>{v.by && <div style={{ color: "#94A3B8", fontSize: 10 }}>{v.by} · {v.time}</div>}</div>)) : <div style={{ fontSize: 10, color: "#CBD5E1", fontStyle: "italic" }}>Нет</div>)}</div><button onClick={() => setAddMatType(col.key)} style={{ background: "transparent", border: "1px dashed #CBD5E1", borderRadius: 5, padding: "4px 8px", fontSize: 10, color: "#94A3B8", cursor: "pointer", width: "100%" }}>+ Добавить</button></div>))}</div></div>
+
+          {/* Links */}
+          <div style={SB}><div style={ST}>Ссылки</div><div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{topic.links.map((l, i) => <a key={i} href={l.url} style={{ fontSize: 11, color: "#3B82F6", textDecoration: "none", background: "#EFF6FF", padding: "4px 8px", borderRadius: 4, border: "1px solid #BFDBFE" }}>{l.title}</a>)}<button style={{ background: "transparent", border: "1px dashed #CBD5E1", borderRadius: 4, padding: "4px 8px", fontSize: 10, color: "#94A3B8", cursor: "pointer" }}>+ Ссылка</button></div></div>
+        </div>
+
+        {showChat && (<div style={{ width: 320, borderLeft: "1px solid #E2E8F0", background: "#fff", position: "sticky", top: 50, height: "calc(100vh - 50px)", display: "flex", flexDirection: "column" }}><div style={{ padding: "9px 12px", borderBottom: "1px solid #E2E8F0", fontSize: 12, fontWeight: 700 }}>Лента</div><div style={{ flex: 1, padding: 10, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5 }}>{topic.messages.map((m, i) => (<div key={i} style={{ padding: m.auto ? "4px 7px" : "6px 7px", background: m.auto ? "#F8FAFC" : "#fff", borderRadius: 5, border: `1px solid ${m.auto ? "#F1F5F9" : "#E2E8F0"}` }}><div style={{ display: "flex", gap: 4, alignItems: "baseline" }}><span style={{ fontSize: 10, fontWeight: 700, color: m.auto ? "#94A3B8" : "#334155" }}>{m.author}</span><span style={{ fontSize: 9, color: "#CBD5E1" }}>{m.time}</span></div><div style={{ fontSize: m.auto ? 10 : 11, color: m.auto ? "#64748B" : "#475569", marginTop: 1 }}>{m.text}</div></div>))}</div><div style={{ padding: "7px 10px", borderTop: "1px solid #E2E8F0", display: "flex", gap: 5 }}><input value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendMsg(); }} placeholder="Написать..." style={{ flex: 1, border: "1.5px solid #E2E8F0", borderRadius: 5, padding: "6px 8px", fontSize: 11, outline: "none" }} /><button onClick={sendMsg} style={{ background: "#3B82F6", color: "#fff", border: "none", borderRadius: 5, padding: "6px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>{"\u2192"}</button></div></div>)}
+      </div>
+    </div>
+  );
+}
+
+function CreateTopicModal({ onClose, onCreate }) {
+  const [title, setTitle] = useState("");
+  const [unit, setUnit] = useState("tv");
+  const [priority, setPriority] = useState("important");
+  return (<div style={ov} onClick={onClose}><div onClick={e => e.stopPropagation()} style={md}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 15, color: "#0F172A" }}>Новая тема</h3><button onClick={onClose} style={cb}>✕</button></div>
+    <div style={{ marginBottom: 10 }}><label style={fl}>Название темы</label><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Что произошло?" autoFocus style={{ ...fi, fontSize: 15, fontWeight: 600, color: "#0F172A", padding: "10px 12px", background: "#fff" }} /></div>
+    <div style={{ marginBottom: 10 }}><label style={fl}>Кто заводит (юнит)</label><div style={{ display: "flex", gap: 3 }}>{UNITS.map(u => (<button key={u.id} onClick={() => setUnit(u.id)} style={{ padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: unit === u.id ? u.color + "15" : "#F8FAFC", border: `1.5px solid ${unit === u.id ? u.color : "#E2E8F0"}`, color: unit === u.id ? u.color : "#64748B" }}>{u.icon} {u.label}</button>))}</div></div>
+    <div style={{ marginBottom: 14 }}><label style={fl}>Приоритет</label><div style={{ display: "flex", gap: 5 }}>{PRIORITIES.map(p => (<button key={p.id} onClick={() => setPriority(p.id)} style={{ padding: "4px 12px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: priority === p.id ? p.color + "15" : "#F8FAFC", border: `1.5px solid ${priority === p.id ? p.color : "#E2E8F0"}`, color: priority === p.id ? p.color : "#64748B" }}>{p.label}</button>))}</div></div>
+    <button disabled={!title.trim()} onClick={() => { onCreate({ id: ++_id, title: title.trim(), priority, createdBy: PEOPLE[unit], createdUnit: unit, createdAt: now(), joined: { [unit]: { person: PEOPLE[unit], time: now(), airTime: "", aired: false } }, parts: [], materials: { contacts_scene: [], contacts_speakers: [], videos_social: [] }, crews: [], links: [], messages: [{ author: "Система", text: `Тема создана: ${title.trim()}`, time: now(), auto: true }] }); onClose(); }} style={{ width: "100%", background: title.trim() ? "#3B82F6" : "#CBD5E1", color: "#fff", border: "none", borderRadius: 8, padding: 10, fontSize: 13, fontWeight: 600, cursor: title.trim() ? "pointer" : "default" }}>Создать тему</button>
+  </div></div>);
+}
+
+function App() {
+  const [topics, setTopics] = useState(JSON.parse(JSON.stringify(INIT)));
+  const [sel, setSel] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [tab, setTab] = useState("topics");
+  const [showCreate, setShowCreate] = useState(false);
+
+  const createTopic = (topic) => { setTopics([topic, ...topics]); };
+
+  if (sel) return <TopicView topic={topics.find(x => x.id === sel)} onBack={() => setSel(null)} />;
+
+  const sorted = [...topics].sort((a, b) => ({ urgent: 0, important: 1, planned: 2 }[a.priority] || 2) - ({ urgent: 0, important: 1, planned: 2 }[b.priority] || 2));
+  const filtered = filter === "all" ? sorted : sorted.filter(t => t.joined[filter]);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0F172A", fontFamily: "'IBM Plex Sans', -apple-system, sans-serif", color: "#E2E8F0" }}>
+      {showCreate && <CreateTopicModal onClose={() => setShowCreate(false)} onCreate={createTopic} />}
+      <div style={{ padding: "12px 22px", borderBottom: "1px solid #1E293B", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: 7, background: "linear-gradient(135deg, #3B82F6, #8B5CF6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 800, color: "#fff" }}>M</div><div><div style={{ fontSize: 14, fontWeight: 700, color: "#F1F5F9" }}>Контентный хаб</div><div style={{ fontSize: 10, color: "#64748B" }}>{filtered.length} тем</div></div></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {tab === "topics" && <button onClick={() => setShowCreate(true)} style={{ background: "#3B82F6", color: "#fff", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>+ Новая тема</button>}
+          <div style={{ display: "flex", gap: 2, background: "#1E293B", borderRadius: 6, padding: 2 }}>
+            <button onClick={() => setTab("topics")} style={{ padding: "4px 12px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: tab === "topics" ? "#334155" : "transparent", color: tab === "topics" ? "#F1F5F9" : "#64748B", border: "none" }}>Темы</button>
+            <button onClick={() => setTab("dashboard")} style={{ padding: "4px 12px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", background: tab === "dashboard" ? "#334155" : "transparent", color: tab === "dashboard" ? "#F1F5F9" : "#64748B", border: "none" }}>Дашборд</button>
+          </div>
+          {tab === "topics" && <div style={{ display: "flex", gap: 3 }}>
+            <button onClick={() => setFilter("all")} style={{ background: filter === "all" ? "#334155" : "transparent", color: filter === "all" ? "#F1F5F9" : "#64748B", border: "1px solid #334155", borderRadius: 5, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Все</button>
+            {UNITS.map(u => (<button key={u.id} onClick={() => setFilter(u.id)} style={{ background: filter === u.id ? u.color + "20" : "transparent", color: filter === u.id ? u.color : "#64748B", border: `1px solid ${filter === u.id ? u.color + "40" : "#334155"}`, borderRadius: 5, padding: "4px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}><UB uid={u.id} style={{ background: "transparent", padding: 0 }} /></button>))}
+          </div>}
+        </div>
+      </div>
+
+      {tab === "dashboard" && <Dashboard topics={topics} />}
+      {tab === "topics" && <div style={{ padding: "14px 22px", display: "flex", flexDirection: "column", gap: 4 }}>
+        {filtered.map(t => { const je = Object.entries(t.joined); const allA = je.length > 0 && je.every(([, v]) => v.aired); const pr = PRIORITIES.find(p => p.id === t.priority); const pd = t.parts.filter(p => p.status === "done").length; const act = t.parts.filter(p => p.status !== "rejected").length; return (
+          <div key={t.id} onClick={() => setSel(t.id)} style={{ background: allA ? "#1E293B80" : "#1E293B", borderRadius: 9, padding: "11px 16px", border: `1px solid ${pr?.id === "urgent" ? "#EF444425" : "#334155"}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, opacity: allA ? 0.5 : 1 }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#253044"; e.currentTarget.style.opacity = "1"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = allA ? "#1E293B80" : "#1E293B"; e.currentTarget.style.opacity = allA ? "0.5" : "1"; }}>
+            <div style={{ flex: 1 }}><div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>{pr && <span style={{ fontSize: 9, fontWeight: 700, color: pr.color, background: pr.color + "15", padding: "2px 6px", borderRadius: 3 }}>{pr.label.toUpperCase()}</span>}{allA && <span style={{ fontSize: 9, fontWeight: 700, color: "#10B981", background: "#10B98115", padding: "2px 6px", borderRadius: 3 }}>ЗАВЕРШЕНО</span>}<span style={{ fontSize: 13, fontWeight: 700, color: "#F1F5F9" }}>{t.title}</span></div><div style={{ fontSize: 10, color: "#64748B" }}>{t.createdBy}, {UM[t.createdUnit].label} · {t.createdAt}</div></div>
+            <div style={{ display: "flex", gap: 2 }}>{je.map(([uid, d]) => <UB key={uid} uid={uid} style={{ opacity: d.aired ? 0.5 : 1 }} />)}</div>
+            {t.parts.length > 0 && <div style={{ textAlign: "right", minWidth: 36 }}><div style={{ fontSize: 11, fontWeight: 700, color: "#CBD5E1" }}>{pd}/{act}</div><div style={{ fontSize: 9, color: "#64748B" }}>запчасти</div></div>}
+            {t.crews.length > 0 && <span style={{ fontSize: 11, color: "#F59E0B" }}>🚐 {t.crews.length}</span>}
+            <span style={{ color: "#475569", fontSize: 13 }}>{"\u2192"}</span>
+          </div>); })}
+      </div>}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
